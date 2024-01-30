@@ -4,16 +4,16 @@ import json
 from enum import Enum
 import random
 import time
-from termcolor import colored  # Added for colored text in terminal
+from termcolor import colored, cprint  # Added for colored text in terminal
 
 
 class Color(Enum):
-    CYAN = (0, 255, 255)
-    BLUE = (0, 0, 255)
-    ORANGE = (255, 165, 0)
-    MAGENTA = (255, 0, 255)
-    RED = (255, 0, 0)
-    BLACK = (0, 0, 0)
+    CYAN = (0, 255, 255, "cyan")
+    BLUE = (0, 0, 255, "blue")
+    ORANGE = (255, 165, 0, "yellow")
+    MAGENTA = (255, 0, 255, "magenta")
+    RED = (255, 0, 0, "red")
+    BLACK = (0, 0, 0, "grey")
 
 
 class Player:
@@ -143,6 +143,7 @@ class ScotlandYardGame:
             )
             for station in self.stations_data
         }
+        self.game_over = False
         for station in self.stations_data:
             node = self.nodes[station["number"]]
             for taxi_number in station["neighbourTaxis"]:
@@ -183,7 +184,7 @@ class ScotlandYardGame:
 
         pygame.display.flip()  # Render the game fully before starting the game loop
 
-        while running and turn_count < max_turns:
+        while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -191,31 +192,36 @@ class ScotlandYardGame:
             self.screen.blit(self.map_image, self.map_rect)
             for player in self.players:
                 pos = self.gui_positions[player.get_position()]
-                pygame.draw.circle(self.screen, player.color.value, pos, 10)
-            self.turn()
-            turn_count += 1
+                pygame.draw.circle(self.screen, player.color.value[:3], pos, 10)
+            if turn_count < max_turns and not self.game_over:
+                self.turn()
+                turn_count += 1
 
-            time.sleep(1)
+                time.sleep(1)
 
-            turn_text = font.render(
-                f"Turn: {turn_count}/{max_turns}",
-                True,
-                (255, 255, 255),
-            )
-            self.screen.blit(turn_text, (10, 10))
-            # pygame.draw.circle(
-            #     self.screen,
-            #     self.current_player.color.value,
-            #     (turn_text.get_width() + 20, 20),
-            #     10,
-            # )
+                turn_text = font.render(
+                    f"Turn: {turn_count}/{max_turns}",
+                    True,
+                    (255, 255, 255),
+                )
+                self.screen.blit(turn_text, (10, 10))
 
             pygame.display.flip()
 
-        if turn_count >= max_turns:
-            print(colored("MrX has won!", "red"))
-        else:
-            print(colored("Detectives have won!", "green"))
+            if self.game_over:
+                print(
+                    colored(
+                        "MrX has been caught! Detectives have won!",
+                        "green",
+                        attrs=["bold"],
+                    )
+                )
+                time.sleep(5)
+                running = False
+            elif turn_count >= max_turns:
+                print(colored("MrX has won!", "red", attrs=["bold"]))
+                time.sleep(5)
+                running = False
 
         pygame.quit()
         sys.exit()
@@ -245,11 +251,6 @@ class ScotlandYardGame:
         for player in self.players:
             self.current_player = player
             possible_moves = player.get_possible_moves(self.nodes)
-            print(
-                colored(
-                    f"{player.get_name()} possible moves: {possible_moves}", "yellow"
-                )
-            )
             if possible_moves:
                 new_position = random.choice(possible_moves)
                 random_ticket = random.choice(
@@ -260,17 +261,19 @@ class ScotlandYardGame:
                     ]
                 )
                 player.move(new_position, random_ticket)
-                print(
-                    colored(
-                        f"{player.get_name()} moved to {new_position}. Remaining tickets: {player.get_left_tickets()}",
-                        "cyan",
-                    )
+                cprint(
+                    f"{player.get_name()} moved to {new_position}. Remaining tickets: {player.get_left_tickets()}\n",
+                    player.color.value[3],
+                    attrs=["bold"],
                 )
                 if (
                     isinstance(player, Detective)
                     and player.get_position() == self.mrX.get_position()
                 ):
-                    print(colored("MrX has been caught!", "magenta"))
+                    cprint("MrX has been caught!\n", "magenta", attrs=["bold"])
+                    self.game_over = True
+                    break
+        print("-" * 50)
 
 
 if __name__ == "__main__":
